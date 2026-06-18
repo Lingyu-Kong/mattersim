@@ -19,14 +19,15 @@ The bundled patch was generated against:
 
 .. code-block:: text
 
-   LAMMPS commit: 3bfc12b02799eedf79d779d66fad8c4c60554084
-   LAMMPS describe: patch_30Mar2026-1540-g3bfc12b027
+   LAMMPS tag: stable_22Jul2025
+   LAMMPS commit: c7ae612a9497437412cb787b78769570f48653dd
+   Upstream branches containing the tag: origin/stable, origin/maintenance
 
 The patch file is:
 
 .. code-block:: text
 
-   patches/lammps/0001-mliap-python-expose-types-tags-box-lengths.patch
+   patches/lammps/0001-mliap-python-expose-types-tags-box-lengths-stable_22Jul2025.patch
 
 Quick Environment Setup
 -----------------------
@@ -115,8 +116,8 @@ The helper performs:
 .. code-block:: bash
 
    git clone https://github.com/lammps/lammps.git
-   git checkout 3bfc12b02799eedf79d779d66fad8c4c60554084
-   git apply mattersim/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths.patch
+   git checkout stable_22Jul2025
+   git apply mattersim/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths-stable_22Jul2025.patch
    cmake -D PKG_ML-IAP=on -D MLIAP_ENABLE_PYTHON=on -D PKG_KOKKOS=on ...
    cmake --build ...
    cmake --install ...
@@ -136,8 +137,8 @@ To apply the patch manually:
 .. code-block:: bash
 
    cd /path/to/lammps
-   git checkout 3bfc12b02799eedf79d779d66fad8c4c60554084
-   git apply /path/to/mattersim/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths.patch
+   git checkout stable_22Jul2025
+   git apply /path/to/mattersim/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths-stable_22Jul2025.patch
 
 Verification
 ------------

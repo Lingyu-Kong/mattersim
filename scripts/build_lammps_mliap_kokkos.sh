@@ -5,8 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MATTERSIM_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 LAMMPS_REPO="${LAMMPS_REPO:-https://github.com/lammps/lammps.git}"
-LAMMPS_REF="${LAMMPS_REF:-3bfc12b02799eedf79d779d66fad8c4c60554084}"
-PATCH_PATH="${PATCH_PATH:-${MATTERSIM_ROOT}/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths.patch}"
+LAMMPS_REF="${LAMMPS_REF:-stable_22Jul2025}"
+PATCH_PATH="${PATCH_PATH:-${MATTERSIM_ROOT}/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths-stable_22Jul2025.patch}"
 
 WORK_ROOT="${WORK_ROOT:-${PWD}/lammps-mliap-build}"
 SOURCE_DIR="${SOURCE_DIR:-}"
@@ -37,8 +37,8 @@ Options:
   --build-dir PATH        CMake build directory. Default: SOURCE_DIR/build-mattersim-mliap-kokkos.
   --install-prefix PATH   Install prefix. Default: active conda env $CONDA_PREFIX.
   --repo URL              LAMMPS git repo. Default: official GitHub.
-  --ref REF               LAMMPS commit/tag/branch. Default: tested 30Mar2026 commit.
-  --patch PATH            Patch file. Default: mattersim/patches/lammps/0001-...
+  --ref REF               LAMMPS commit/tag/branch. Default: stable_22Jul2025.
+  --patch PATH            Patch file. Default: stable_22Jul2025 ML-IAP bridge patch.
   --python-executable PATH Python used by ML-IAP bridge. Default: current python.
   --cuda-root PATH        CUDA root containing bin/nvcc. Auto-detected when omitted.
   --kokkos-arch NAME      Kokkos GPU arch, e.g. AMPERE80, AMPERE86, HOPPER90.
