@@ -85,4 +85,5 @@ Frequently Asked Questions
    user_guide/torchsim
    user_guide/finetune
    user_guide/lammps
+   user_guide/lammps_ghost_target_fep_ti
    examples/examples

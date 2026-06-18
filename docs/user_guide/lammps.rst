@@ -16,6 +16,10 @@ Prerequisites
 Quick Start
 -----------
 
+For MatterTune ghost-target FEP-TI workflows, use the patched ML-IAP bridge
+setup in :doc:`lammps_ghost_target_fep_ti`. The standard MatterSim ML-IAP path
+below does not require that bridge extension.
+
 **1. Export the model**
 
 .. code-block:: python
