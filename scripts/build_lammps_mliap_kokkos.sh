@@ -22,6 +22,7 @@ BUILD_MPI="${BUILD_MPI:-yes}"
 EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS:-}"
 SKIP_CLONE="${SKIP_CLONE:-0}"
 SKIP_PATCH="${SKIP_PATCH:-0}"
+INSTALL_PYTHON="${INSTALL_PYTHON:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 
 usage() {
@@ -45,13 +46,14 @@ Options:
   --jobs N                Parallel build jobs. Default: number of online CPUs.
   --skip-clone            Use existing source dir; do not clone or checkout.
   --skip-patch            Do not apply MatterSim ML-IAP bridge patch.
+  --skip-install-python   Do not install the LAMMPS Python wheel.
   --dry-run               Print commands only.
   -h, --help              Show this help.
 
 Environment overrides:
   LAMMPS_REPO LAMMPS_REF PATCH_PATH WORK_ROOT SOURCE_DIR BUILD_DIR INSTALL_PREFIX
   PYTHON_EXECUTABLE CUDA_ROOT KOKKOS_ARCH JOBS BUILD_SHARED_LIBS BUILD_MPI
-  EXTRA_CMAKE_ARGS SKIP_CLONE SKIP_PATCH DRY_RUN
+  EXTRA_CMAKE_ARGS SKIP_CLONE SKIP_PATCH INSTALL_PYTHON DRY_RUN
 EOF
 }
 
@@ -70,6 +72,7 @@ while [[ $# -gt 0 ]]; do
     --jobs) JOBS="$2"; shift 2 ;;
     --skip-clone) SKIP_CLONE=1; shift ;;
     --skip-patch) SKIP_PATCH=1; shift ;;
+    --skip-install-python) INSTALL_PYTHON=0; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -200,6 +203,9 @@ run_cmd cmake -S "${SOURCE_DIR}/cmake" -B "${BUILD_DIR}" \
 
 run_cmd cmake --build "${BUILD_DIR}" -j "${JOBS}"
 run_cmd cmake --install "${BUILD_DIR}"
+if [[ "${INSTALL_PYTHON}" == "1" ]]; then
+  run_cmd cmake --build "${BUILD_DIR}" --target install-python
+fi
 
 cat <<EOF
 

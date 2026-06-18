@@ -15,12 +15,14 @@ bridge extension and should be applied to official LAMMPS source.
 Tested LAMMPS Base
 ------------------
 
-The bundled patch was generated against:
+The bundled patch was generated against the 22 July 2025 stable tag and tested
+against the official ``stable`` branch at ``stable_22Jul2025_update4``:
 
 .. code-block:: text
 
    LAMMPS tag: stable_22Jul2025
    LAMMPS commit: c7ae612a9497437412cb787b78769570f48653dd
+   Tested stable branch: stable_22Jul2025_update4
    Upstream branches containing the tag: origin/stable, origin/maintenance
 
 The patch file is:
@@ -39,23 +41,28 @@ Assume MatterSim and MatterTune are cloned into the same parent directory:
    mkdir -p ~/workspace/electrolyte-fep
    cd ~/workspace/electrolyte-fep
 
-   git clone <your-mattersim-repo-url> mattersim
-   git clone <your-mattertune-repo-url> MatterTune
+   git clone -b electrolyte https://github.com/Lingyu-Kong/mattersim mattersim
+   git clone -b electrolyte https://github.com/Lingyu-Kong/MatterTune-Elec MatterTune
 
 Create and activate a Python environment:
 
 .. code-block:: bash
 
-   conda create -n mattersim-elec python=3.10 -y
+   conda create -n mattersim-elec python=3.12 -y
    conda activate mattersim-elec
+   export PYTHONNOUSERSITE=1
 
-   python -m pip install -U pip setuptools wheel
+   conda install -c conda-forge cmake -y
+   python -m pip install -U pip setuptools wheel "Cython>=0.29.32"
 
-Install PyTorch matching your CUDA/driver stack. For CUDA 12.6 wheels:
+Install PyTorch matching your CUDA/driver stack. For CUDA 12.6 wheels, install
+the PyTorch packages from the same CUDA index so that ``torchvision`` C++/CUDA
+operators match ``torch``:
 
 .. code-block:: bash
 
-   python -m pip install torch --index-url https://download.pytorch.org/whl/cu126
+   python -m pip install torch torchvision torchaudio \
+     --index-url https://download.pytorch.org/whl/cu126
 
 Install the local packages:
 
@@ -75,6 +82,7 @@ Use the bundled build helper from the MatterSim repo:
 
    bash scripts/build_lammps_mliap_kokkos.sh \
      --work-root ~/workspace/electrolyte-fep/_lammps \
+     --ref stable \
      --kokkos-arch AMPERE86
 
 If ``nvcc`` is not on ``PATH``, pass CUDA explicitly:
@@ -83,6 +91,7 @@ If ``nvcc`` is not on ``PATH``, pass CUDA explicitly:
 
    bash scripts/build_lammps_mliap_kokkos.sh \
      --work-root ~/workspace/electrolyte-fep/_lammps \
+     --ref stable \
      --cuda-root /usr/local/cuda-12.6 \
      --kokkos-arch AMPERE86
 
@@ -104,6 +113,7 @@ The script installs LAMMPS into the active conda environment by default:
 
    ${CONDA_PREFIX}/bin/lmp
    ${CONDA_PREFIX}/lib/liblammps.so
+   ${CONDA_PREFIX}/lib/python*/site-packages/lammps
 
 Use the full ``${CONDA_PREFIX}/bin/lmp`` path if another ``lmp`` appears earlier
 in ``PATH``.
@@ -116,11 +126,12 @@ The helper performs:
 .. code-block:: bash
 
    git clone https://github.com/lammps/lammps.git
-   git checkout stable_22Jul2025
+   git checkout stable
    git apply mattersim/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths-stable_22Jul2025.patch
    cmake -D PKG_ML-IAP=on -D MLIAP_ENABLE_PYTHON=on -D PKG_KOKKOS=on ...
    cmake --build ...
    cmake --install ...
+   cmake --build ... --target install-python
 
 To use an existing LAMMPS checkout:
 
@@ -137,7 +148,7 @@ To apply the patch manually:
 .. code-block:: bash
 
    cd /path/to/lammps
-   git checkout stable_22Jul2025
+   git checkout stable
    git apply /path/to/mattersim/patches/lammps/0001-mliap-python-expose-types-tags-box-lengths-stable_22Jul2025.patch
 
 Verification
