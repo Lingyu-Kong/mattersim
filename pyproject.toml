@@ -49,12 +49,15 @@ dependencies = [
     "torchaudio>=2.2.0",
     "torchmetrics>=0.10.0",
     "torchvision>=0.17.0",
-    "torch-sim-atomistic>=0.6.0",
     "wandb",
     "typer"
 ]
 
 [project.optional-dependencies]
+torchsim = [
+    "torch-sim-atomistic>=0.6.0",
+]
+
 dev = [
     "ipykernel",
     "ipython",

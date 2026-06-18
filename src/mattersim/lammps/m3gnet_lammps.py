@@ -90,6 +90,7 @@ class M3GnetLammps(nn.Module):
         nlocal: int,
         forward_exchange_fn: Callable,
         reverse_exchange_fn: Callable,
+        local_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         m = self.m3gnet
         ntotal = input["atom_attr"].shape[0]
@@ -191,6 +192,8 @@ class M3GnetLammps(nn.Module):
         # --- Readout (local atoms only) ---
         energies_i = m.final(atom_attr).view(-1)
         energies_i = m.normalizer(energies_i, atomic_numbers[:nlocal])
+        if local_mask is not None:
+            energies_i = energies_i[local_mask]
         energies = energies_i.sum().unsqueeze(0)
 
         return energies
