@@ -47,6 +47,12 @@ def _scalar_float(value: torch.Tensor | float | None) -> float:
     return float(value)
 
 
+def _format_energy_log_float(value: float, *, is_time: bool = False) -> str:
+    if is_time:
+        return f"{value:.12g}"
+    return f"{value:.16g}"
+
+
 def _load_mattertune_mattersim_checkpoint(
     checkpoint_path: str | Path,
     *,
@@ -575,7 +581,7 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
             eval_index,
             time_fs,
             time_fs / 1000.0,
-            float("nan"),
+            "",
             mixed_energy_float,
             real_energy,
             ghost_total_energy,
@@ -586,8 +592,12 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         )
         handle.write(
             ",".join(
-                str(value) if isinstance(value, int) else f"{value:.16g}"
-                for value in row
+                str(value)
+                if isinstance(value, int)
+                else value
+                if isinstance(value, str)
+                else _format_energy_log_float(value, is_time=index in {1, 2})
+                for index, value in enumerate(row)
             )
             + "\n"
         )
