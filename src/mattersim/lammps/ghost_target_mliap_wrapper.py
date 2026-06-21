@@ -20,9 +20,31 @@ from mattersim.lammps.mliap_wrapper import MatterSimMLIAP, _freeze
 
 LOG = logging.getLogger(__name__)
 
+ENERGY_LOG_FIELDS = (
+    "step",
+    "time_fs",
+    "time_ps",
+    "temperature_K",
+    "mixed_energy_eV",
+    "E_I_eV",
+    "E_F_with_LJ_eV",
+    "E_F_without_LJ_eV",
+    "E_LJ_eV",
+    "deltaE_with_LJ_eV",
+    "deltaE_without_LJ_eV",
+)
+
 
 def _as_float_tensor(value: float, *, device: torch.device) -> torch.Tensor:
     return torch.tensor([float(value)], dtype=torch.float32, device=device)
+
+
+def _scalar_float(value: torch.Tensor | float | None) -> float:
+    if value is None:
+        return float("nan")
+    if isinstance(value, torch.Tensor):
+        return float(value.detach().reshape(-1)[0].cpu())
+    return float(value)
 
 
 def _load_mattertune_mattersim_checkpoint(
@@ -72,6 +94,9 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         threebody_cutoff: float = 4.0,
         ghost_cutoff: float | None = None,
         ghost_threebody_cutoff: float | None = None,
+        energy_log_path: str | Path | None = None,
+        energy_log_interval: int = 1,
+        energy_log_timestep_fs: float = 1.0,
         compile: bool = True,
     ) -> None:
         if not 0.0 <= float(lambda_value) <= 1.0:
@@ -84,6 +109,10 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
             raise ValueError("sigma must be positive.")
         if lj_cutoff <= 0.0:
             raise ValueError("lj_cutoff must be positive.")
+        if int(energy_log_interval) <= 0:
+            raise ValueError("energy_log_interval must be positive.")
+        if energy_log_timestep_fs <= 0.0:
+            raise ValueError("energy_log_timestep_fs must be positive.")
 
         super().__init__(
             model,
@@ -124,6 +153,14 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         self.last_ghost_endpoint_energy: float | None = None
         self.last_effective_lj_cutoff: float | None = None
 
+        self.energy_log_path = (
+            None if energy_log_path is None else str(Path(energy_log_path))
+        )
+        self.energy_log_interval = int(energy_log_interval)
+        self.energy_log_timestep_fs = float(energy_log_timestep_fs)
+        self._energy_log_handle = None
+        self._energy_log_eval_count = 0
+
     @classmethod
     def from_mattertune_checkpoint(
         cls,
@@ -135,6 +172,9 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         sigma: float = 2.337,
         lj_cutoff: float = 10.0,
         ghost_checkpoint: str | Path | None = None,
+        energy_log_path: str | Path | None = None,
+        energy_log_interval: int = 1,
+        energy_log_timestep_fs: float = 1.0,
         device: str = "cpu",
         strict: bool = False,
         **kwargs: Any,
@@ -177,8 +217,16 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
             threebody_cutoff=threebody_cutoff,
             ghost_cutoff=ghost_cutoff,
             ghost_threebody_cutoff=ghost_threebody_cutoff,
+            energy_log_path=energy_log_path,
+            energy_log_interval=energy_log_interval,
+            energy_log_timestep_fs=energy_log_timestep_fs,
             **kwargs,
         )
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = self.__dict__.copy()
+        state["_energy_log_handle"] = None
+        return state
 
     def _initialize_device(self, data) -> None:  # type: ignore[no-untyped-def]
         super()._initialize_device(data)
@@ -296,6 +344,8 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         self.last_ghost_base_energy = float(ghost_energy.detach().cpu())
         self.last_ghost_lj_energy = float(lj_energy.detach().cpu())
         self.last_ghost_endpoint_energy = float(ghost_total_energy.detach().cpu())
+
+        self._write_energy_log_row(energy)
 
         MatterSimMLIAP._update_lammps_data(
             self,
@@ -481,8 +531,72 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         energy = (weights * pair_energies).sum()
         return energy.reshape(1).to(rij.dtype), pair_forces
 
+    def _open_energy_log(self):
+        energy_log_path = getattr(self, "energy_log_path", None)
+        if energy_log_path is None:
+            return None
+        energy_log_handle = getattr(self, "_energy_log_handle", None)
+        if energy_log_handle is not None:
+            return energy_log_handle
+
+        path = Path(energy_log_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = path.open("w", encoding="utf-8", newline="")
+        handle.write(",".join(ENERGY_LOG_FIELDS) + "\n")
+        handle.flush()
+        self._energy_log_handle = handle
+        return handle
+
+    def _write_energy_log_row(self, mixed_energy: torch.Tensor) -> None:
+        if getattr(self, "energy_log_path", None) is None:
+            return
+
+        eval_index = int(getattr(self, "_energy_log_eval_count", 0))
+        self._energy_log_eval_count = eval_index + 1
+        energy_log_interval = int(getattr(self, "energy_log_interval", 1))
+        if eval_index % energy_log_interval != 0:
+            return
+
+        handle = self._open_energy_log()
+        if handle is None:
+            return
+
+        timestep_fs = float(getattr(self, "energy_log_timestep_fs", 1.0))
+        time_fs = eval_index * timestep_fs
+        real_energy = _scalar_float(self.last_real_endpoint_energy)
+        ghost_total_energy = _scalar_float(self.last_ghost_endpoint_energy)
+        ghost_base_energy = _scalar_float(self.last_ghost_base_energy)
+        ghost_lj_energy = _scalar_float(self.last_ghost_lj_energy)
+        mixed_energy_float = _scalar_float(mixed_energy)
+        delta_with_lj = ghost_total_energy - real_energy
+        delta_without_lj = ghost_base_energy - real_energy
+
+        row = (
+            eval_index,
+            time_fs,
+            time_fs / 1000.0,
+            float("nan"),
+            mixed_energy_float,
+            real_energy,
+            ghost_total_energy,
+            ghost_base_energy,
+            ghost_lj_energy,
+            delta_with_lj,
+            delta_without_lj,
+        )
+        handle.write(
+            ",".join(
+                str(value) if isinstance(value, int) else f"{value:.16g}"
+                for value in row
+            )
+            + "\n"
+        )
+        handle.flush()
+
     def save(self, path: str) -> None:
         saved = copy.deepcopy(self)
+        saved._energy_log_handle = None
+        saved._energy_log_eval_count = 0
         saved.m3gnet_lammps = M3GnetLammps(saved.m3gnet_lammps.m3gnet.cpu())
         if saved.ghost_m3gnet_lammps is not None:
             saved.ghost_m3gnet_lammps = M3GnetLammps(
