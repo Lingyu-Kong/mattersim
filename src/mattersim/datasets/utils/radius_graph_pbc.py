@@ -244,10 +244,13 @@ def _get_radius_graph_pbc_cdist(
         shift_to_unwrap[edge_index[1]] - shift_to_unwrap[edge_index[0]]
     )
 
-    # Remove self-loops
+    # Remove home self-loops: an atom paired with itself in the home image
+    # (same atom AND zero cell offset), which has a true length of zero and
+    # would produce 0/0 NaNs in the M3GNet three-body terms.
     if dist is not None:
-        eps_self_loop = 0.01
-        is_self_loop = (edge_index[0] == edge_index[1]) & (dist <= eps_self_loop)
+        is_self_loop = (edge_index[0] == edge_index[1]) & (
+            cell_offsets_result == 0
+        ).all(dim=1)
         mask = ~is_self_loop
         edge_index = edge_index[:, mask]
         cell_offsets_result = cell_offsets_result[mask]

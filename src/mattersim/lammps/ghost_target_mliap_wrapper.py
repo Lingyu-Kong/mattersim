@@ -336,6 +336,7 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
             pair_i=pair_i,
             pair_j=pair_j,
             rij=rij,
+            nlocal=data.nlocal,
         )
         ghost_total_energy = ghost_energy + lj_energy.to(ghost_energy.dtype)
         ghost_total_forces = ghost_pair_forces + lj_pair_forces.to(
@@ -376,6 +377,8 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         threebody_cutoff: float,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         selected_pair_indices = torch.nonzero(pair_mask, as_tuple=False).flatten()
+        local_receiver_mask = pair_i[selected_pair_indices] < data.nlocal
+        selected_pair_indices = selected_pair_indices[local_receiver_mask]
         pair_i_selected = pair_i[selected_pair_indices]
         pair_j_selected = pair_j[selected_pair_indices]
         rij_selected = rij[selected_pair_indices]
@@ -440,6 +443,7 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         pair_i: torch.Tensor,
         pair_j: torch.Tensor,
         rij: torch.Tensor,
+        nlocal: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         pair_forces = torch.zeros_like(rij)
         if box_lengths.numel() != 3 or torch.any(box_lengths <= 0.0):
@@ -456,7 +460,7 @@ class GhostTargetMatterSimMLIAP(MatterTuneMatterSimMLIAP):
         pair_mask = (
             target_mask[pair_i]
             ^ target_mask[pair_j]
-        ) & (distances_sq <= self.lj_cutoff**2)
+        ) & (pair_i < nlocal) & (distances_sq <= effective_lj_cutoff**2)
 
         if not torch.any(pair_mask):
             return _as_float_tensor(0.0, device=self.device), pair_forces

@@ -44,10 +44,18 @@ class LammpsExchange(torch.autograd.Function):
         reverse_exchange_fn: Callable,
         nghost: int,
     ) -> torch.Tensor:
+        if atom_attr.ndim != 2:
+            raise ValueError(
+                "LAMMPS feature exchange expects a 2D [nlocal, feature_dim] tensor."
+            )
+        if nghost < 0:
+            raise ValueError("LAMMPS feature exchange received a negative ghost count.")
+
         ctx.reverse_exchange_fn = reverse_exchange_fn
         ctx.nlocal = atom_attr.shape[0]
 
         # Pad ghost slots with zeros, then exchange local → ghost
+        atom_attr = atom_attr.contiguous()
         pad = torch.zeros(
             (nghost, atom_attr.shape[1]),
             dtype=atom_attr.dtype,
@@ -61,6 +69,7 @@ class LammpsExchange(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor):
         # Accumulate ghost gradients back into local atoms
+        grad_output = grad_output.contiguous()
         grad_input = torch.empty_like(grad_output)
         ctx.reverse_exchange_fn(grad_output, grad_input, grad_output.shape[1])
         # Truncate to local atoms only
